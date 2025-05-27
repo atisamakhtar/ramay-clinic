@@ -1,73 +1,110 @@
-import { create } from 'zustand';
-import { User } from '../types';
+import { create } from 'zustand'
+import { supabase } from '../lib/supabase'
+import type { Session, User as SupabaseUser } from '@supabase/supabase-js'
+import { AuthChangeEvent } from '@supabase/supabase-js';
+import type { User } from '../types'
 
-type AuthState = {
-  user: User | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  error: string | null;
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
-};
+interface AuthState {
+  user: User | null
+  session: Session | null
+  isAuthenticated: boolean
+  isLoading: boolean
+  error: string | null
 
-// This is a mock implementation that would be replaced with actual API calls
-export const useAuthStore = create<AuthState>((set) => ({
+  login: (email: string, password: string) => Promise<void>
+  logout: () => Promise<void>
+  initializeAuth: () => Promise<void>
+
+  setUserSession: (user: User, session: Session) => void
+}
+
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
+  session: null,
   isAuthenticated: false,
   isLoading: false,
   error: null,
-  
+
+  // Sign in via Supabase, map session.user to our User type
   login: async (email, password) => {
-    set({ isLoading: true, error: null });
-    try {
-      // Mock login - in a real app, this would be an API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      if (email === 'admin@medical.com' && password === 'password') {
-        const user: User = {
-          id: '1',
-          name: 'Admin User',
-          email: 'admin@medical.com',
-          role: 'admin',
-          createdAt: new Date().toISOString()
-        };
-        
-        set({ user, isAuthenticated: true, isLoading: false });
-        localStorage.setItem('medInv_user', JSON.stringify(user));
-      } else if (email === 'superadmin@medical.com' && password === 'password') {
-        const user: User = {
-          id: '2',
-          name: 'Super Admin',
-          email: 'superadmin@medical.com',
-          role: 'superadmin',
-          createdAt: new Date().toISOString()
-        };
-        
-        set({ user, isAuthenticated: true, isLoading: false });
-        localStorage.setItem('medInv_user', JSON.stringify(user));
-      } else {
-        set({ error: 'Invalid credentials', isLoading: false });
+    set({ isLoading: true, error: null })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+
+    if (error) {
+      set({ error: error.message, isLoading: false })
+      return
+    }
+
+    if (data.session && data.user) {
+      // Map SupabaseUser to our User type
+      const supaUser: SupabaseUser = data.user
+      const mappedUser: User = {
+        id: supaUser.id,
+        name: (supaUser.user_metadata as any)?.name || '',
+        email: supaUser.email || '',
+        role: (supaUser.user_metadata as any)?.role || 'authenticated',
+        createdAt: supaUser.created_at || new Date().toISOString(),
       }
-    } catch (err) {
-      set({ error: 'Login failed. Please try again.', isLoading: false });
+
+      set({
+        user: mappedUser,
+        session: data.session,
+        isAuthenticated: true,
+        isLoading: false
+      })
     }
   },
-  
-  logout: () => {
-    localStorage.removeItem('medInv_user');
-    set({ user: null, isAuthenticated: false });
-  }
-}));
 
-// Function to initialize auth from localStorage
-export const initializeAuth = () => {
-  const user = localStorage.getItem('medInv_user');
-  if (user) {
-    try {
-      const parsedUser = JSON.parse(user) as User;
-      useAuthStore.setState({ user: parsedUser, isAuthenticated: true });
-    } catch (e) {
-      localStorage.removeItem('medInv_user');
+  // Sign out and clear store
+  logout: async () => {
+    await supabase.auth.signOut()
+    set({ user: null, session: null, isAuthenticated: false })
+  },
+
+  // On app load, read existing session & subscribe to changes
+  initializeAuth: async () => {
+    set({ isLoading: true })
+    const {
+      data: { session }
+    } = await supabase.auth.getSession()
+
+    if (session && session.user) {
+      const supaUser = session.user
+      const mappedUser: User = {
+        id: supaUser.id,
+        name: (supaUser.user_metadata as any)?.name || '',
+        email: supaUser.email || '',
+        role: (supaUser.user_metadata as any)?.role || 'authenticated',
+        createdAt: supaUser.created_at || new Date().toISOString(),
+      }
+
+      set({
+        user: mappedUser,
+        session,
+        isAuthenticated: true
+      })
     }
-  }
-};
+
+    // Subscribe to auth changes
+    supabase.auth.onAuthStateChange((_event: AuthChangeEvent, newSession: Session | null) => {
+      if (newSession && newSession.user) {
+        const supaUser = newSession.user
+        const mappedUser: User = {
+          id: supaUser.id,
+          name: (supaUser.user_metadata as any)?.name || '',
+          email: supaUser.email || '',
+          role: (supaUser.user_metadata as any)?.role || 'authenticated',
+          createdAt: supaUser.created_at || new Date().toISOString(),
+        }
+        set({ user: mappedUser, session: newSession, isAuthenticated: true })
+      } else {
+        set({ user: null, session: null, isAuthenticated: false })
+      }
+    })
+
+    set({ isLoading: false })
+  },
+
+  setUserSession: (user, session) =>
+    set({ user, session, isAuthenticated: true }),
+}))

@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import LoginForm from './components/auth/LoginForm';
+import SignupForm from './components/auth/SignupForm';
 import DashboardLayout from './components/layout/DashboardLayout';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
@@ -13,13 +14,15 @@ import Users from './pages/Users';
 import Pharmacies from './pages/Pharmacies';
 import Invoices from './pages/Invoices';
 import ProtectedRoute from './components/auth/ProtectedRoute';
-import { initializeAuth } from './store/authStore';
+// import { initializeAuth } from './store/authStore';
+import { useAuthStore } from './store/authStore';
 
 function App() {
   // Initialize auth from localStorage on app load
+   const initializeAuth = useAuthStore(state => state.initializeAuth)
   useEffect(() => {
-    initializeAuth();
-  }, []);
+    initializeAuth()
+  }, [initializeAuth])
 
   return (
     <BrowserRouter>
@@ -35,6 +38,7 @@ function App() {
       />
       <Routes>
         <Route path="/login" element={<LoginForm />} />
+        <Route path="/signup" element={<SignupForm />} />
         
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         

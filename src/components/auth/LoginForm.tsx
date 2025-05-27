@@ -1,46 +1,81 @@
-import React, { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { Package } from 'lucide-react';
-import { Button } from '../ui/Button';
-import { Input } from '../ui/Input';
-import { useAuthStore } from '../../store/authStore';
+// src/components/auth/LoginForm.tsx
+import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { Link, useNavigate } from 'react-router-dom'
+import { supabase } from '../../lib/supabase'
+import { useAuthStore } from '../../store/authStore'
+import type { User } from '../../types'
+import { Button } from '../ui/Button'
+import { Input } from '../ui/Input'
 
 type LoginFormData = {
-  email: string;
-  password: string;
-};
+  email: string
+  password: string
+}
 
 export default function LoginForm() {
-  const { login, error, isLoading } = useAuthStore();
-  const [showPassword, setShowPassword] = useState(false);
-  
-  const { register, handleSubmit, formState: { errors } } = useForm<LoginFormData>({
-    defaultValues: {
-      email: '',
-      password: ''
-    }
-  });
-  
+  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState<boolean>(false)
+  const [showPassword, setShowPassword] = useState<boolean>(false)
+  const navigate = useNavigate()
+  const setUserSession = useAuthStore((state) => state.setUserSession)
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors }
+  } = useForm<LoginFormData>({
+    defaultValues: { email: '', password: '' }
+  })
+
   const onSubmit = async (data: LoginFormData) => {
-    await login(data.email, data.password);
-  };
-  
+    setIsLoading(true)
+    setError(null)
+
+    const { data: loginData, error: loginError } =
+      await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password
+      })
+
+    if (loginError) {
+      console.log('❌ loginError:', loginError)
+      setError(loginError.message)
+    } else if (loginData.user && loginData.session) {
+      // Map Supabase's User → your app's User type
+      const supaUser = loginData.user
+      const appUser: User = {
+        id: supaUser.id,
+        name: (supaUser.user_metadata as any)?.name ?? '',
+        email: supaUser.email ?? '',
+        role: (supaUser.user_metadata as any)?.role ?? 'authenticated',
+        createdAt: supaUser.created_at ?? new Date().toISOString()
+      }
+
+      // Update your global store and redirect
+      setUserSession(appUser, loginData.session)
+      navigate('/dashboard')
+    }
+
+    setIsLoading(false)
+  }
+
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-md">
         <div className="text-center">
-          <div className="mx-auto h-16 w-16 rounded-full bg-blue-600 flex items-center justify-center">
-            <Package className="h-8 w-8 text-white" />
+          <div className="mx-auto h-16 w-16 rounded-full flex items-center justify-center">
+            <img src="/media/ramay-clinic.jpg" alt="Logo" />
           </div>
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            MedInventory
+            Ramay Clinic
           </h2>
           <p className="mt-2 text-sm text-gray-600">
             Sign in to access the medical inventory management system
           </p>
         </div>
-        
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
+
+        <form className="mt-8" onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-4">
             <Input
               id="email"
@@ -48,7 +83,7 @@ export default function LoginForm() {
               label="Email address"
               autoComplete="email"
               error={errors.email?.message}
-              {...register('email', { 
+              {...register('email', {
                 required: 'Email is required',
                 pattern: {
                   value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
@@ -56,7 +91,7 @@ export default function LoginForm() {
                 }
               })}
             />
-            
+
             <div className="relative">
               <Input
                 id="password"
@@ -64,7 +99,7 @@ export default function LoginForm() {
                 label="Password"
                 autoComplete="current-password"
                 error={errors.password?.message}
-                {...register('password', { 
+                {...register('password', {
                   required: 'Password is required',
                   minLength: {
                     value: 6,
@@ -81,35 +116,44 @@ export default function LoginForm() {
               </button>
             </div>
           </div>
-          
+
           {error && (
             <div className="text-sm text-red-600 bg-red-50 py-2 px-3 rounded">
               {error}
             </div>
           )}
-          
-          <div>
-            <Button 
-              type="submit" 
-              className="w-full" 
-              isLoading={isLoading}
-            >
+
+          {/* <div>
+            <Button type="submit" className="w-full" isLoading={isLoading}>
               Sign in
             </Button>
+            <Link to="/signup">
+              <Button type="button" className="w-full mt-5">
+                Sign Up
+              </Button>
+            </Link>
+          </div> */}
+
+          <div className="flex gap-4 mt-4">
+            <Button type="submit" className="w-1/2" isLoading={isLoading}>
+              Sign in
+            </Button>
+            <Link to="/signup" className="w-1/2">
+              <Button type="button" className="w-full">
+                Sign Up
+              </Button>
+            </Link>
           </div>
-          
-          <div className="text-sm text-center">
-            <p className="text-gray-600">
-              Demo credentials:
-            </p>
-            <p className="text-gray-500 text-xs mt-1">
-              Admin: admin@medical.com / password
-              <br />
-              Super Admin: superadmin@medical.com / password
-            </p>
-          </div>
+
+          <Link
+            to="/forgot-password"
+            className="mt-4 text-sm text-blue-600 hover:underline mt-1 block text-center"
+          >
+            Forgot password?
+          </Link>
+
         </form>
       </div>
     </div>
-  );
+  )
 }
