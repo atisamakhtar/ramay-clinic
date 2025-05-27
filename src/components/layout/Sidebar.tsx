@@ -8,7 +8,9 @@ import {
   BarChart4, 
   Settings,
   UserCog,
-  LogOut
+  LogOut,
+  Building2,
+  Receipt
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAuthStore } from '../../store/authStore';
@@ -42,6 +44,16 @@ const navItems: NavItem[] = [
     icon: <ClipboardList size={20} /> 
   },
   { 
+    title: 'Pharmacies', 
+    path: '/pharmacies', 
+    icon: <Building2 size={20} /> 
+  },
+  { 
+    title: 'Invoices', 
+    path: '/invoices', 
+    icon: <Receipt size={20} /> 
+  },
+  { 
     title: 'Reports', 
     path: '/reports', 
     icon: <BarChart4 size={20} /> 
@@ -70,7 +82,7 @@ export default function Sidebar() {
           <span className="bg-blue-600 text-white p-1 rounded mr-2 flex items-center justify-center">
             <Package size={20} />
           </span>
-          Ramay Clinic
+          MedInventory
         </h1>
       </div>
       

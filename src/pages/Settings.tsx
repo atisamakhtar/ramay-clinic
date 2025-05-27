@@ -325,7 +325,7 @@ export default function Settings() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-gray-50 p-3 rounded-md">
                 <p className="text-gray-500">System Version</p>
-                <p className="font-medium text-gray-900">Ramay Clinic v1.0.0</p>
+                <p className="font-medium text-gray-900">MedInventory v1.0.0</p>
               </div>
               
               <div className="bg-gray-50 p-3 rounded-md">
